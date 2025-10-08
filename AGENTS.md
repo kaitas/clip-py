@@ -1,5 +1,7 @@
 # Repository Guidelines
 
+> ローカルの非公開ノートは `.local/AGENTS.md` を参照してください（Git追跡対象外）。
+
 ## Project Structure & Module Organization
 - Go CLI lives at repo root: `*.go` (commands in `commands.go`, entrypoint in `clip.go`).
 - Tests sit alongside sources (`*_test.go`) and use fixtures in `tests/assets/`.
