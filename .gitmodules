@@ -1,3 +1,6 @@
 [submodule "third_party/clip_to_psd"]
 	path = third_party/clip_to_psd
 	url = https://github.com/dobrokot/clip_to_psd.git
+[submodule "third_party/manga-editor-desu"]
+	path = third_party/manga-editor-desu
+	url = https://github.com/kaitas/manga-editor-desu.git

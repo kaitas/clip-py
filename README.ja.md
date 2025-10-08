@@ -46,6 +46,33 @@ make test    # 単体テスト（go test -v）
 go test -bench=. -run ^$
 ```
 
+## Python 版のセットアップ（pip3）
+Python での開発／動作確認を行う場合：
+
+1) 依存インストール（Pillow は画像処理用）
+```sh
+python3 -m pip install --upgrade pip
+pip3 install -e . pillow pytest
+```
+
+2) sqlite3 の確認（Python 標準モジュール）
+```sh
+python3 - <<'PY'
+import sqlite3; print('sqlite3 version:', sqlite3.sqlite_version)
+PY
+```
+macOS でシステムの `sqlite3` コマンドが必要なら（任意）：
+```sh
+# Homebrew がある場合
+brew install sqlite
+sqlite3 --version
+```
+
+3) Python テスト実行
+```sh
+pytest
+```
+
 ## 注意事項
 - `.clip/` と `clip` バイナリは生成物です（`.gitignore` 済み）。
 - `clip init` は Git のフックを書き換えるため、まずは検証用リポジトリで試してください。
