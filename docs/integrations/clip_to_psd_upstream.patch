@@ -1,0 +1,93 @@
+diff --git a/clip_to_psd.py b/clip_to_psd.py
+index 5bca60d..a155cd3 100644
+--- a/clip_to_psd.py
++++ b/clip_to_psd.py
+@@ -1001,7 +1001,12 @@ def parse_layer_text_attribute(data):
+         param_data = data_reader_all_params.read_n(param_data_size)
+         data_reader = DataReader(param_data)
+ 
+-        param_name, param_value, debug_print_extra = parse_layer_text_attribute_param(param_id, data_reader)
++        # 互換性向上: 未知/不完全なテキスト属性はスキップして続行する
++        try:
++            param_name, param_value, debug_print_extra = parse_layer_text_attribute_param(param_id, data_reader)
++        except Exception as e:
++            logging.warning("skip text param_id=%s due to parse error: %s", param_id, repr(e))
++            continue
+ 
+         if logging.getLogger().isEnabledFor(logging.DEBUG):
+             logging.debug('param_name= [%s] param_id=%s extra=%s value=%s', param_name, param_id, debug_print_extra, param_value)
+@@ -1015,7 +1020,8 @@ def parse_layer_text_attribute(data):
+         clip_text_params[param_name] = param_value
+ 
+         if data_reader.ofs != param_data_size:
+-            raise ValueError(param_id)
++            logging.warning("skip text param_id=%s due to size mismatch (ofs=%s != size=%s)", param_id, data_reader.ofs, param_data_size)
++            continue
+ 
+     return clip_text_params
+ 
+@@ -1807,6 +1813,15 @@ def save_psd(output_psd, chunks, sqlite_info, layer_ordered):
+             else:
+                 logging.warning("layer '%s' has no bitmaps info", layer.LayerName)
+ 
++        if layer_bitmap_info_for_export:
++            bitmap_blocks, offscreen_attribute = layer_bitmaps[layer.MainId].LayerBitmap
++            # 互換性対応: レイヤーのpackingが(1,4)以外の場合、--psd-empty-bitmap-data 指定時は空ビットマップとして扱う
++            if cmd_args.psd_empty_bitmap_data:
++                _w, _h, _gw, _gh, _fill_bw, pixel_packing_params, _init_color = parse_offscreen_attributes_sql_value(offscreen_attribute)
++                if (pixel_packing_params[1], pixel_packing_params[2]) != (1, 4):
++                    logging.warning("packing %s is unsupported for PSD layer; exporting empty bitmap for this layer", (pixel_packing_params[1], pixel_packing_params[2]))
++                    layer_bitmap_info_for_export = None
++
+         if layer_bitmap_info_for_export:
+             bitmap_blocks, offscreen_attribute = layer_bitmaps[layer.MainId].LayerBitmap
+             channel_scanlines, offset_x, offset_y, bitmap_width, bitmap_height, _default_color = decode_to_psd_rle(offscreen_attribute, bitmap_blocks, psd_version, "layer")
+@@ -2443,6 +2458,10 @@ def save_psd(output_psd, chunks, sqlite_info, layer_ordered):
+         # but this unusual option possibly will confuse user.
+         #
+         # So, select aligment based on maximum number of letters for each aligment.
++        # 互換性: 'param_align' が無い場合は左揃え(0)として扱う
++        if 'param_align' not in clip_text_params:
++            return 0
++
+         align_total_length = { }
+         for a in clip_text_params['param_align']:
+             l = (min(len(text), a.start + a.length) - max(a.start, 0))
+@@ -2468,7 +2487,10 @@ def save_psd(output_psd, chunks, sqlite_info, layer_ordered):
+ 
+         dy += first_line_height
+ 
+-        q = clip_text_params['quad_verts']
++        q = clip_text_params.get('quad_verts')
++        if not q:
++            # フォールバック: bboxの矩形をそのまま四隅として扱う
++            q = [bbox[0], bbox[1], bbox[2], bbox[1], bbox[2], bbox[3], bbox[0], bbox[3]]
+         a = [q[2+i] - q[0+i] for i in (0,1)] # a, b - vectors along parallelogram sides
+         b = [q[6+i] - q[0+i] for i in (0,1)]
+ 
+@@ -2491,7 +2513,7 @@ def save_psd(output_psd, chunks, sqlite_info, layer_ordered):
+         # interpret quad_verts as parallelogram, buid matrix to map bbox to quad_verts with the common center. 
+         # ClipStudio upscales font size for vertical  stretch/squeze scale, but keeps it the same for horizontal <-> scale. 
+         # So leave vertical scale handling to font size, but horizontal scale is handled by matrix. 
+-        hor_scale = clip_text_params['aspect_ratio']/100.0 
++        hor_scale = clip_text_params.get('aspect_ratio', 100.0)/100.0 
+         logging.debug('hor_scale %s', hor_scale)
+ 
+         offset = [(wh[i] - a[i] - b[i])/2 + bbox[i] + layer_offset[i] - q[i] for i in (0,1)] 
+@@ -2531,13 +2553,13 @@ def save_psd(output_psd, chunks, sqlite_info, layer_ordered):
+         return ''.join(result), result_style
+ 
+     def fill_text_letters_styles(text_str, clip_text_params):
+-        default_font_display_name = clip_text_params['font']
++        default_font_display_name = clip_text_params.get('font', 'Sans')
+ 
+-        default_font_size = clip_text_params['font_size'] / 100.0 * (sqlite_info.dpi / 72.0)
++        default_font_size = clip_text_params.get('font_size', 1200) / 100.0 * (sqlite_info.dpi / 72.0)
+         default_style = {
+             'font_size': default_font_size,
+             'font_display_name': default_font_display_name,
+-            'color': clip_text_params['color'],
++            'color': clip_text_params.get('color', [0.0, 0.0, 0.0]),
+             'auto_kerning': 'true',
+             'style_flags': 0,
+             'underline': False,
