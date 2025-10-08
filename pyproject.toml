@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "clip-py"
+version = "0.0.1"
+description = "Python port scaffold for CLIP STUDIO .clip helpers"
+readme = "README.ja.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+authors = [{ name = "Original: lycoris0731", email = "" }]
+maintainers = [{ name = "Contributors" }]
+keywords = ["clip studio", ".clip", "gif", "sqlite"]
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Operating System :: MacOS",
+  "Environment :: Console"
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/lycoris0731/clip"
+Repository = "https://github.com/lycoris0731/clip"
+
+[project.scripts]
+clip-py = "clip_py.__main__:main"
+
+[tool.hatch.build]
+packages = ["src/clip_py"]
+
