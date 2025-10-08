@@ -1,0 +1,41 @@
+name: CI Failure Issue
+
+# CIが失敗したときに自動でIssueを作成します（簡易運用）。
+# 連続失敗でIssueが増えすぎるのを避けるため、同一コミットSHAの重複作成を抑制します。
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: ["completed"]
+
+jobs:
+  create-issue-on-failure:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create issue for failed run
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run
+            const sha = run.head_sha
+            const branch = run.head_branch
+            const title = `CI失敗: ${branch} @ ${sha.substring(0,7)}`
+            const body = `CIが失敗しました。\n\n- ワークフロー: ${run.name}\n- ブランチ: ${branch}\n- コミット: ${sha}\n- 実行: ${run.html_url}\n\nログを確認し、必要なら修正・再実行してください。`
+
+            // 既存の同名Issueがないか確認（重複作成を避ける）
+            const { data: issues } = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${context.repo.owner}/${context.repo.repo} in:title "${title}" state:open`
+            })
+            if (issues.total_count > 0) {
+              core.info('同一タイトルのIssueが既に存在します。新規作成をスキップします。')
+              return
+            }
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['ci','bug']
+            })
+
