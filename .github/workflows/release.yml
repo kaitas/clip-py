@@ -1,0 +1,94 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-go:
+    name: Build Go (macOS)
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-13
+            goarch: amd64
+          - os: macos-14
+            goarch: arm64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.20.x'
+      - name: Install deps
+        run: make deps
+      - name: Build
+        env:
+          GOOS: darwin
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 1
+        run: |
+          mkdir -p dist
+          go build -o dist/clip-darwin-${{ matrix.goarch }}
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: clip-darwin-${{ matrix.goarch }}
+          path: dist/clip-darwin-${{ matrix.goarch }}
+
+  build-py:
+    name: Build Python Package
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+          python -m build
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: py-dist
+          path: dist/*
+
+  release:
+    name: Create GitHub Release
+    needs: [build-go, build-py]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/**
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-pypi:
+    if: ${{ startsWith(github.ref, 'refs/tags/') && secrets.PYPI_API_TOKEN != '' }}
+    name: Publish to PyPI
+    needs: build-py
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Python dist
+        uses: actions/download-artifact@v4
+        with:
+          name: py-dist
+          path: dist
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          packages_dir: dist
+
