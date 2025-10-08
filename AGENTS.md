@@ -85,3 +85,4 @@
 - バックエンド：Python（FastAPI/Celery）で監視・抽出・画像変換。SQLite/Redis等でキュー・メタ保持。
 - フロント：Next.js等でダッシュボード、コメントUI、差分ビューを提供。
 - 監視：ファイル監視（watchdog）またはGitフック/CI連携。クラウド連携（Dropbox/Drive API）は段階導入。
+- **外部連携（clip_to_psd）**: `third_party/clip_to_psd` をサブモジュール追加済み。概要と需要指標は `docs/integrations/clip_to_psd.md` を参照。
